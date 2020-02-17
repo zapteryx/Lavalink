@@ -23,31 +23,33 @@
 package lavalink.server.io
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager
-import lavalink.server.player.Player
-import space.npstr.magma.api.MagmaMember
 import io.undertow.websockets.core.WebSocketCallback
 import io.undertow.websockets.core.WebSocketChannel
 import io.undertow.websockets.core.WebSockets
 import io.undertow.websockets.jsr.UndertowSession
+import lavalink.server.player.Player
 import org.json.JSONObject
 import org.slf4j.LoggerFactory
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.adapter.standard.StandardWebSocketSession
 import space.npstr.magma.MagmaFactory
 import space.npstr.magma.api.MagmaApi
+import space.npstr.magma.api.MagmaMember
 import space.npstr.magma.api.event.MagmaEvent
 import space.npstr.magma.api.event.WebSocketClosed
 import java.util.*
-import java.util.concurrent.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
+import kotlin.math.max
 
 class SocketContext internal constructor(
         audioPlayerManagerSupplier: Supplier<AudioPlayerManager>,
-        var session: WebSocketSession,
+        private var session: WebSocketSession,
         private val socketServer: SocketServer,
         val userId: String
 ) {
@@ -69,7 +71,7 @@ class SocketContext internal constructor(
     var resumeTimeout = 60L // Seconds
     private var sessionTimeoutFuture: ScheduledFuture<Unit>? = null
     private val executor: ScheduledExecutorService
-    val playerUpdateService: ScheduledExecutorService
+    private val updateDispatcher = UpdateDispatcher(players)
 
     val playingPlayers: List<Player>
         get() {
@@ -84,13 +86,6 @@ class SocketContext internal constructor(
 
         executor = Executors.newSingleThreadScheduledExecutor()
         executor.scheduleAtFixedRate(StatsTask(this, socketServer), 0, 1, TimeUnit.MINUTES)
-
-        playerUpdateService = Executors.newScheduledThreadPool(2) { r ->
-            val thread = Thread(r)
-            thread.name = "player-update"
-            thread.isDaemon = true
-            thread
-        }
     }
 
     internal fun getPlayer(guildId: String) = players.computeIfAbsent(guildId) {
@@ -163,14 +158,14 @@ class SocketContext internal constructor(
             send(resumeEventQueue.remove())
         }
 
-        players.values.forEach { it -> SocketServer.sendPlayerUpdate(this, it) }
+        players.values.forEach { it.sendPlayerUpdate() }
     }
 
     internal fun shutdown() {
         log.info("Shutting down " + playingPlayers.size + " playing players.")
         executor.shutdown()
         audioPlayerManager.shutdown()
-        playerUpdateService.shutdown()
+        updateDispatcher.shutdown()
         players.keys.forEach { guildId ->
             val member = MagmaMember.builder()
                     .userId(userId)
@@ -182,5 +177,38 @@ class SocketContext internal constructor(
 
         players.values.forEach(Player::stop)
         magma.shutdown()
+    }
+
+    class UpdateDispatcher(private val players: ConcurrentHashMap<String, Player>): Thread("UpdateDispatcher") {
+        private val interval = 5000L;
+        private var lastRun = System.currentTimeMillis()
+        private var running = true;
+
+        init {
+            isDaemon = true
+            start()
+        }
+
+        override fun run() {
+            while (running) {
+                val nextRun = System.currentTimeMillis() + interval
+                val timeDiff = nextRun - System.currentTimeMillis()
+                Thread.sleep(max(0, timeDiff))
+                doLoop()
+                lastRun = System.currentTimeMillis()
+            }
+        }
+
+        private fun doLoop() = players.values.forEach {
+            try {
+                if (it.isPlaying) it.sendPlayerUpdate()
+            } catch (e: Exception) {
+                log.error("Caught exception while sending player update", e)
+            }
+        }
+
+        fun shutdown() {
+            running = false
+        }
     }
 }

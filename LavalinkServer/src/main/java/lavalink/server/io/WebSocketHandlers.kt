@@ -71,7 +71,7 @@ class WebSocketHandlers(private val contextMap: Map<String, SocketContext>) {
                 .build()
         context.magma.setSendHandler(m, context.getPlayer(json.getString("guildId")))
 
-        SocketServer.sendPlayerUpdate(ctx, player)
+        player.sendPlayerUpdate()
     }
 
     fun stop(session: WebSocketSession, json: JSONObject) {
@@ -83,14 +83,14 @@ class WebSocketHandlers(private val contextMap: Map<String, SocketContext>) {
         val context = contextMap[session.id]!!
         val player = context.getPlayer(json.getString("guildId"))
         player.setPause(json.getBoolean("pause"))
-        SocketServer.sendPlayerUpdate(context, player)
+        player.sendPlayerUpdate()
     }
 
     fun seek(session: WebSocketSession, json: JSONObject) {
         val context = contextMap[session.id]!!
         val player = context.getPlayer(json.getString("guildId"))
         player.seekTo(json.getLong("position"))
-        SocketServer.sendPlayerUpdate(context, player)
+        player.sendPlayerUpdate()
     }
 
     fun volume(session: WebSocketSession, json: JSONObject) {

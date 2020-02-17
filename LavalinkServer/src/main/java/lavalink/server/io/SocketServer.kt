@@ -27,7 +27,6 @@ import com.sedmelluq.discord.lavaplayer.jdaudp.NativeAudioSendFactory
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager
 import lavalink.server.config.AudioSendFactoryConfiguration
 import lavalink.server.config.ServerConfig
-import lavalink.server.player.Player
 import lavalink.server.util.Util
 import net.dv8tion.jda.api.audio.factory.IAudioSendFactory
 import org.json.JSONObject
@@ -59,15 +58,6 @@ class SocketServer(
 
     companion object {
         private val log = LoggerFactory.getLogger(SocketServer::class.java)
-
-        fun sendPlayerUpdate(socketContext: SocketContext, player: Player) {
-            val json = JSONObject()
-            json.put("op", "playerUpdate")
-            json.put("guildId", player.guildId)
-            json.put("state", player.state)
-
-            socketContext.send(json)
-        }
     }
 
     val contexts: Collection<SocketContext>
