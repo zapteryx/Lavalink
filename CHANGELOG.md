@@ -3,6 +3,20 @@
 Each release usually includes various fixes and improvements.
 The most noteworthy of these, as well as any features and breaking changes, are listed here.
 
+## v3.3.1.4
+* Update lavaplayer to `1.3.54.3` from devoxin's fork.
+
+## v3.3.1.3
+* Update lavaplayer to `1.3.53` from devoxin's fork.
+
+## v3.3.1.2
+* Update lavaplayer to [@Devoxin](https://github.com/Devoxin)'s' fork
+
+## v3.3.1.1
+* Updated Lavaplayer to `1.3.50`. This notably fixes YouTube search.
+
+Search patch contributed by [@Frederikam](https://github.com/Frederikam)
+
 ## v3.3.1
 * Update Magma and Lavaplayer.
 * Added TrackStartEvent event.
